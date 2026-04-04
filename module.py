@@ -6,19 +6,15 @@ and request management. Does NOT import target modules directly — uses
 dynamic imports via import_module(f'{module_id}.whatsapp').
 """
 
-from app.core.i18n import LazyString
 
 # ---------------------------------------------------------------------------
 # Module identity
 # ---------------------------------------------------------------------------
 MODULE_ID = "whatsapp_inbox"
-MODULE_NAME = LazyString("WhatsApp Inbox", module_id="whatsapp_inbox")
+MODULE_NAME = "WhatsApp Inbox"
 MODULE_VERSION = "1.1.1"
 MODULE_ICON = "logo-whatsapp"
-MODULE_DESCRIPTION = LazyString(
-    "Receive and process WhatsApp Business messages with AI-powered auto-reply and request management",
-    module_id="whatsapp_inbox",
-)
+MODULE_DESCRIPTION = "Receive and process WhatsApp Business messages with AI-powered auto-reply and request management"
 MODULE_AUTHOR = "ERPlora"
 MODULE_CATEGORY = "marketing"
 
@@ -32,7 +28,7 @@ MIDDLEWARE = ""
 # Menu (sidebar entry)
 # ---------------------------------------------------------------------------
 MENU = {
-    "label": LazyString("WhatsApp Inbox", module_id="whatsapp_inbox"),
+    "label": "WhatsApp Inbox",
     "icon": "logo-whatsapp",
     "order": 71,
 }
@@ -43,19 +39,19 @@ MENU = {
 NAVIGATION = [
     {
         "id": "inbox",
-        "label": LazyString("Inbox", module_id="whatsapp_inbox"),
+        "label": "Inbox",
         "icon": "chatbubbles-outline",
         "view": "inbox",
     },
     {
         "id": "requests",
-        "label": LazyString("Requests", module_id="whatsapp_inbox"),
+        "label": "Requests",
         "icon": "clipboard-outline",
         "view": "requests",
     },
     {
         "id": "settings",
-        "label": LazyString("Settings", module_id="whatsapp_inbox"),
+        "label": "Settings",
         "icon": "settings-outline",
         "view": "settings",
     },
@@ -70,13 +66,13 @@ DEPENDENCIES: list[str] = ["messaging", "customers"]
 # Permissions
 # ---------------------------------------------------------------------------
 PERMISSIONS = [
-    ("view_conversation", LazyString("View conversations", module_id="whatsapp_inbox")),
-    ("send_message", LazyString("Send messages", module_id="whatsapp_inbox")),
-    ("view_request", LazyString("View requests", module_id="whatsapp_inbox")),
-    ("change_request", LazyString("Change requests", module_id="whatsapp_inbox")),
-    ("delete_request", LazyString("Delete requests", module_id="whatsapp_inbox")),
-    ("manage_settings", LazyString("Manage settings", module_id="whatsapp_inbox")),
-    ("manage_connections", LazyString("Manage connections", module_id="whatsapp_inbox")),
+    ("view_conversation", "View conversations"),
+    ("send_message", "Send messages"),
+    ("view_request", "View requests"),
+    ("change_request", "Change requests"),
+    ("delete_request", "Delete requests"),
+    ("manage_settings", "Manage settings"),
+    ("manage_connections", "Manage connections"),
 ]
 
 ROLE_PERMISSIONS = {
