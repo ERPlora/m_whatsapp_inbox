@@ -1,0 +1,402 @@
+<div class="p-4" x-data="{ accountMode: '{{ settings.account_mode }}' }">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h2 class="text-2xl font-bold">{{ _("WhatsApp Inbox Settings") }}</h2>
+            <p class="text-sm mt-1 opacity-60">{{ _("Configure your WhatsApp bot and message handling") }}</p>
+        </div>
+    </div>
+
+    {% include "whatsapp_inbox/partials/setup_notice.html" %}
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div class="card">
+            <div class="card-body flex items-center gap-3 p-4">
+                <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+                    {{ icon("chatbubbles-outline", css_class="text-xl text-success") }}
+                </div>
+                <div>
+                    <div class="text-xs opacity-60">{{ _("Conversations") }}</div>
+                    <div class="text-2xl font-semibold">{{ conversation_stats.total|default(0) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body flex items-center gap-3 p-4">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    {{ icon("chatbubble-outline", css_class="text-xl text-primary") }}
+                </div>
+                <div>
+                    <div class="text-xs opacity-60">{{ _("Active") }}</div>
+                    <div class="text-2xl font-semibold">{{ conversation_stats.active|default(0) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body flex items-center gap-3 p-4">
+                <div class="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                    {{ icon("clipboard-outline", css_class="text-xl text-warning") }}
+                </div>
+                <div>
+                    <div class="text-xs opacity-60">{{ _("Pending Requests") }}</div>
+                    <div class="text-2xl font-semibold">{{ request_stats.pending|default(0) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body flex items-center gap-3 p-4">
+                <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+                    {{ icon("checkmark-done-outline", css_class="text-xl text-success") }}
+                </div>
+                <div>
+                    <div class="text-xs opacity-60">{{ _("Fulfilled") }}</div>
+                    <div class="text-2xl font-semibold">{{ request_stats.fulfilled|default(0) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan & Usage -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">{{ icon("card-outline") }} {{ _("Plan") }}</h3>
+        </div>
+        <div class="card-body">
+            {% if plan_info.tier %}
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <span class="text-lg font-semibold">{{ plan_info.tier.name }}</span>
+                        <span class="badge color-primary ml-2">{{ plan_info.tier.price_monthly }}{{ _("/mo") }}</span>
+                    </div>
+                </div>
+                <div class="text-xs opacity-60">
+                    {{ plan_info.usage.messages_received|default(0) }} {{ _("messages received") }} &middot;
+                    {{ plan_info.usage.messages_sent|default(0) }} {{ _("sent") }}
+                </div>
+            {% else %}
+                <div class="text-center py-4 opacity-60">
+                    <p>{{ _("No WhatsApp plan active") }}</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- WhatsApp Connection -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">{{ icon("link-outline") }} {{ _("WhatsApp Connection") }}</h3>
+        </div>
+        <div class="card-body">
+            {% if connected_numbers %}
+                <div class="list mb-4">
+                    {% for num in connected_numbers %}
+                        <div class="list-item">
+                            <div class="list-item-start">
+                                {{ icon("logo-whatsapp", css_class="text-xl text-success") }}
+                            </div>
+                            <div class="list-item-content">
+                                <div class="list-item-label">{{ num.display_phone }}</div>
+                                <div class="list-item-note">
+                                    {% if num.is_active %}
+                                        <span class="badge color-success">{{ _("Connected") }}</span>
+                                    {% else %}
+                                        <span class="badge color-neutral">{{ _("Disconnected") }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if num.is_active %}
+                                <div class="list-item-end">
+                                    <form method="post" action="/m/whatsapp_inbox/settings/disconnect/{{ num.phone_number_id }}">
+                                        {{ csrf_input() }}
+                                        <button type="submit" class="btn btn-sm color-error"
+                                                onclick="return confirm('{{ _("Disconnect this number?") }}')">
+                                            {{ icon("close-outline") }} {{ _("Disconnect") }}
+                                        </button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-6 opacity-60">
+                    {{ icon("logo-whatsapp", css_class="text-4xl mb-2") }}
+                    <p>{{ _("No WhatsApp number connected yet") }}</p>
+                </div>
+            {% endif %}
+
+            <button type="button" class="btn color-success" id="wa-connect-btn"
+                    onclick="startWhatsAppConnect()">
+                {{ icon("qr-code-outline") }} {{ _("Connect WhatsApp") }}
+            </button>
+
+            <!-- Per-employee links -->
+            <div x-show="accountMode === 'per_employee'" class="mt-4">
+                <h4 class="font-semibold mb-2">{{ _("Employee Numbers") }}</h4>
+                {% if employee_links %}
+                    <div class="list">
+                        {% for link in employee_links %}
+                            <div class="list-item">
+                                <div class="list-item-content">
+                                    <div class="list-item-label">{{ link.employee_id }}</div>
+                                    <div class="list-item-note">{{ link.display_phone }}</div>
+                                </div>
+                                <div class="list-item-end">
+                                    {% if link.is_active %}
+                                        <span class="badge color-success">{{ _("Active") }}</span>
+                                    {% else %}
+                                        <span class="badge color-neutral">{{ _("Inactive") }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-sm opacity-60">{{ _("No employees have connected their WhatsApp numbers yet.") }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <form method="post"
+          hx-post="/m/whatsapp_inbox/settings"
+          hx-target="#main-content-area"
+          hx-swap="innerHTML">
+        {{ csrf_input() }}
+
+        <!-- General -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ icon("logo-whatsapp") }} {{ _("General") }}</h3>
+            </div>
+            <div class="card-body p-0">
+                <div class="list">
+                    <div class="list-item">
+                        <div class="list-item-content">
+                            <div class="list-item-label">{{ _("Enable WhatsApp Inbox") }}</div>
+                            <div class="list-item-note">{{ _("Receive and process incoming WhatsApp messages") }}</div>
+                        </div>
+                        <div class="list-item-end">
+                            <label class="toggle">
+                                <input type="checkbox" name="is_enabled"
+                                       {% if settings.is_enabled %}checked{% endif %}>
+                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="form-group">
+                        <label class="form-group-label">{{ _("Account Mode") }}</label>
+                        <select name="account_mode" class="select"
+                                x-model="accountMode">
+                            <option value="shared" {{ 'selected' if settings.account_mode == 'shared' }}>
+                                {{ _("Shared -- one number for the whole team") }}
+                            </option>
+                            <option value="per_employee" {{ 'selected' if settings.account_mode == 'per_employee' }}>
+                                {{ _("Per-employee -- each salesperson has their own number") }}
+                            </option>
+                        </select>
+                        <p class="text-xs opacity-60 mt-1">
+                            <span x-show="accountMode === 'shared'">{{ _("All messages go to a single inbox. Ideal for restaurants, shops.") }}</span>
+                            <span x-show="accountMode === 'per_employee'">{{ _("Each employee connects their own WhatsApp number. Ideal for sales teams.") }}</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bot Configuration -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ icon("hardware-chip-outline") }} {{ _("AI Bot") }}</h3>
+            </div>
+            <div class="card-body p-0">
+                <div class="list">
+                    <div class="list-item">
+                        <div class="list-item-content">
+                            <div class="list-item-label">{{ _("Auto-Reply") }}</div>
+                            <div class="list-item-note">{{ _("GPT automatically responds to messages and parses requests") }}</div>
+                        </div>
+                        <div class="list-item-end">
+                            <label class="toggle">
+                                <input type="checkbox" name="auto_reply_enabled"
+                                       {% if settings.auto_reply_enabled %}checked{% endif %}>
+                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div class="form-group">
+                        <label class="form-group-label">{{ _("Approval Mode") }}</label>
+                        <select name="approval_mode" class="select">
+                            <option value="auto" {{ 'selected' if settings.approval_mode == 'auto' }}>
+                                {{ _("Automatic -- Bot handles requests directly") }}
+                            </option>
+                            <option value="manual" {{ 'selected' if settings.approval_mode == 'manual' }}>
+                                {{ _("Manual -- Staff must approve each request") }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="list-item px-0">
+                        <div class="list-item-content">
+                            <div class="list-item-label">{{ _("Require Confirmation") }}</div>
+                            <div class="list-item-note">{{ _("Auto mode only: ask the client to confirm before creating a request") }}</div>
+                        </div>
+                        <div class="list-item-end">
+                            <label class="toggle">
+                                <input type="checkbox" name="require_confirmation"
+                                       {% if settings.require_confirmation %}checked{% endif %}>
+                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-group-label">{{ _("GPT System Prompt") }}</label>
+                        <textarea name="gpt_system_prompt" class="textarea" rows="6"
+                                  placeholder="{{ _('Business info, hours, menu, FAQs...') }}">{{ settings.gpt_system_prompt }}</textarea>
+                        <p class="text-xs opacity-60 mt-1">{{ _("Describe your business, hours, menu/services, FAQs. GPT uses this to respond to customers.") }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Module Integration -->
+        {% if input_candidates or output_candidates %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ icon("git-merge-outline") }} {{ _("Module Integration") }}</h3>
+            </div>
+            <div class="card-body space-y-4">
+                {% if input_candidates %}
+                    <div class="form-group">
+                        <label class="form-group-label">{{ _("Input Modules") }}</label>
+                        <p class="text-xs opacity-60 mb-2">{{ _("GPT uses data from these modules to respond accurately (products, services, prices)") }}</p>
+                        {% for mod in input_candidates %}
+                            <label class="checkbox-input mb-2">
+                                <input type="checkbox" name="input_modules" value="{{ mod.id }}"
+                                       {% if mod.id in settings.input_modules %}checked{% endif %}>
+                                <span class="checkbox-box"></span>
+                                <span>{{ mod.label }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                {% if output_candidates %}
+                    <div class="form-group">
+                        <label class="form-group-label">{{ _("Output Modules") }}</label>
+                        <p class="text-xs opacity-60 mb-2">{{ _("Confirmed requests automatically create records in these modules") }}</p>
+                        {% for mod in output_candidates %}
+                            <label class="checkbox-input mb-2">
+                                <input type="checkbox" name="output_modules" value="{{ mod.id }}"
+                                       {% if mod.id in settings.output_modules %}checked{% endif %}>
+                                <span class="checkbox-box"></span>
+                                <span>{{ mod.id }} ({{ mod.label }})</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Auto Messages -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ icon("chatbox-outline") }} {{ _("Automated Messages") }}</h3>
+            </div>
+            <div class="card-body space-y-4">
+                <div class="form-group">
+                    <label class="form-group-label">{{ _("Greeting Message") }}</label>
+                    <textarea name="greeting_message" class="textarea" rows="3"
+                              placeholder="{{ _('Welcome! How can we help you?') }}">{{ settings.greeting_message }}</textarea>
+                    <p class="text-xs opacity-60 mt-1">{{ _("Sent automatically when a new conversation starts (without GPT)") }}</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-group-label">{{ _("Out of Hours Message") }}</label>
+                    <textarea name="out_of_hours_message" class="textarea" rows="3"
+                              placeholder="{{ _('We are currently closed. We will reply soon.') }}">{{ settings.out_of_hours_message }}</textarea>
+                    <p class="text-xs opacity-60 mt-1">{{ _("Sent when messages arrive outside business hours") }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Behavior -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ icon("settings-outline") }} {{ _("Behavior") }}</h3>
+            </div>
+            <div class="card-body p-0">
+                <div class="list">
+                    <div class="list-item">
+                        <div class="list-item-content">
+                            <div class="list-item-label">{{ _("Notify Staff on New Request") }}</div>
+                            <div class="list-item-note">{{ _("Send a notification when a new request is created") }}</div>
+                        </div>
+                        <div class="list-item-end">
+                            <label class="toggle">
+                                <input type="checkbox" name="notify_staff_new_request"
+                                       {% if settings.notify_staff_new_request %}checked{% endif %}>
+                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="form-group">
+                        <label class="form-group-label">{{ _("Auto-close after (hours)") }}</label>
+                        <input type="number" name="auto_close_hours" class="input"
+                               min="1" max="168" value="{{ settings.auto_close_hours }}">
+                        <p class="text-xs opacity-60 mt-1">{{ _("Conversations without activity are automatically closed") }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save -->
+        <button type="submit" class="btn color-primary">
+            {{ icon("save-outline") }} {{ _("Save Settings") }}
+        </button>
+    </form>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+function startWhatsAppConnect(employeeId) {
+    // Meta Embedded Signup JS SDK
+    FB.login(function(response) {
+        if (response.authResponse && response.authResponse.code) {
+            fetch('/m/whatsapp_inbox/settings/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+                body: JSON.stringify({
+                    code: response.authResponse.code,
+                    employee_id: employeeId || '',
+                }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Connection failed');
+                }
+            })
+            .catch(() => alert('Connection failed'));
+        }
+    }, {
+        config_id: '{{ whatsapp_config_id|default("") }}',
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: {
+            setup: {},
+            featureType: '',
+            sessionInfoVersion: 2,
+        }
+    });
+}
+</script>

@@ -1,0 +1,180 @@
+<div class="p-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h2 class="text-2xl font-bold">{{ _("Requests") }}</h2>
+            <p class="text-sm mt-1 opacity-60">{{ _("Orders, reservations, and appointments from WhatsApp") }}</p>
+        </div>
+    </div>
+
+    {% include "whatsapp_inbox/partials/setup_notice.html" %}
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="card">
+            <div class="card-body flex items-center gap-3 p-4">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    {{ icon("clipboard-outline", css_class="text-xl text-primary") }}
+                </div>
+                <div>
+                    <div class="text-xs opacity-60">{{ _("Total") }}</div>
+                    <div class="text-2xl font-bold">{{ all_count }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body flex items-center gap-3 p-4">
+                <div class="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                    {{ icon("time-outline", css_class="text-xl text-warning") }}
+                </div>
+                <div>
+                    <div class="text-xs opacity-60">{{ _("Pending") }}</div>
+                    <div class="text-2xl font-bold">{{ pending_count }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body flex items-center gap-3 p-4">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    {{ icon("checkmark-circle-outline", css_class="text-xl text-primary") }}
+                </div>
+                <div>
+                    <div class="text-xs opacity-60">{{ _("Confirmed") }}</div>
+                    <div class="text-2xl font-bold">{{ confirmed_count }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body flex items-center gap-3 p-4">
+                <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+                    {{ icon("checkmark-done-outline", css_class="text-xl text-success") }}
+                </div>
+                <div>
+                    <div class="text-xs opacity-60">{{ _("Fulfilled") }}</div>
+                    <div class="text-2xl font-bold">{{ fulfilled_count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="card mb-4">
+        <div class="card-body p-3">
+            <form hx-get="/m/whatsapp_inbox/requests"
+                  hx-target="#main-content-area"
+                  hx-push-url="true"
+                  hx-trigger="submit, change from:select"
+                  class="flex flex-col md:flex-row gap-3">
+                <div class="input-group flex-1">
+                    <span class="input-group-start">{{ icon("search-outline") }}</span>
+                    <input type="text" name="q" value="{{ search }}"
+                           class="input" placeholder="{{ _('Search by reference...') }}">
+                </div>
+                <select name="status" class="select w-full md:w-48">
+                    <option value="">{{ _("All statuses") }}</option>
+                    <option value="pending_review" {{ 'selected' if status_filter == 'pending_review' }}>{{ _("Pending Review") }}</option>
+                    <option value="confirmed" {{ 'selected' if status_filter == 'confirmed' }}>{{ _("Confirmed") }}</option>
+                    <option value="fulfilled" {{ 'selected' if status_filter == 'fulfilled' }}>{{ _("Fulfilled") }}</option>
+                    <option value="rejected" {{ 'selected' if status_filter == 'rejected' }}>{{ _("Rejected") }}</option>
+                    <option value="cancelled" {{ 'selected' if status_filter == 'cancelled' }}>{{ _("Cancelled") }}</option>
+                </select>
+                <select name="type" class="select w-full md:w-48">
+                    <option value="">{{ _("All types") }}</option>
+                    <option value="order" {{ 'selected' if type_filter == 'order' }}>{{ _("Order") }}</option>
+                    <option value="reservation" {{ 'selected' if type_filter == 'reservation' }}>{{ _("Reservation") }}</option>
+                    <option value="appointment" {{ 'selected' if type_filter == 'appointment' }}>{{ _("Appointment") }}</option>
+                    <option value="quote" {{ 'selected' if type_filter == 'quote' }}>{{ _("Quote") }}</option>
+                    <option value="transport" {{ 'selected' if type_filter == 'transport' }}>{{ _("Transport") }}</option>
+                    <option value="custom" {{ 'selected' if type_filter == 'custom' }}>{{ _("Custom") }}</option>
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <!-- Table -->
+    {% if inbox_requests %}
+    <div class="card">
+        <div class="table-wrapper">
+            <table class="table">
+                <caption class="sr-only">Requests</caption>
+                <thead>
+                    <tr>
+                        <th>{{ _("Reference") }}</th>
+                        <th>{{ _("Type") }}</th>
+                        <th>{{ _("Customer") }}</th>
+                        <th>{{ _("Summary") }}</th>
+                        <th>{{ _("Status") }}</th>
+                        <th>{{ _("Confidence") }}</th>
+                        <th>{{ _("Date") }}</th>
+                        <th class="text-right">{{ _("Actions") }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in inbox_requests %}
+                    <tr class="cursor-pointer hover:bg-base-200 transition-colors"
+                        hx-get="/m/whatsapp_inbox/requests/{{ req.id }}"
+                        hx-target="#main-content-area"
+                        hx-push-url="true">
+                        <td>
+                            <span class="font-semibold">{{ req.reference_number }}</span>
+                        </td>
+                        <td>
+                            <span class="badge badge-sm">{{ req.request_type_display }}</span>
+                        </td>
+                        <td>
+                            {% if req.conversation %}
+                                {{ req.conversation.contact_name }}
+                            {% else %}
+                                <span class="opacity-40">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="text-sm truncate block max-w-xs">{{ req.raw_summary|truncate(60)|default("&mdash;") }}</span>
+                        </td>
+                        <td>
+                            <span class="badge badge-sm color-{{ req.status_class }}">{{ req.status_display }}</span>
+                        </td>
+                        <td>
+                            {% if req.confidence_percent > 0 %}
+                            <span class="text-sm {% if req.confidence_percent >= 80 %}text-success{% elif req.confidence_percent >= 50 %}text-warning{% else %}text-error{% endif %}">
+                                {{ req.confidence_percent }}%
+                            </span>
+                            {% else %}
+                            <span class="opacity-40">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="text-sm opacity-60">{{ req.created_at|dateformat("d M H:i") }}</span>
+                        </td>
+                        <td class="text-right" @click.stop>
+                            {% if req.status == 'pending_review' %}
+                            <form method="post" action="/m/whatsapp_inbox/requests/{{ req.id }}/approve" class="inline">
+                                {{ csrf_input() }}
+                                <button type="submit" class="btn btn-ghost btn-sm color-success"
+                                        title="{{ _('Approve') }}">
+                                    {{ icon("checkmark-outline") }}
+                                </button>
+                            </form>
+                            <form method="post" action="/m/whatsapp_inbox/requests/{{ req.id }}/reject" class="inline">
+                                {{ csrf_input() }}
+                                <button type="submit" class="btn btn-ghost btn-sm color-error"
+                                        title="{{ _('Reject') }}">
+                                    {{ icon("close-outline") }}
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="datatable-empty">
+        <div class="datatable-empty-icon">{{ icon("clipboard-outline") }}</div>
+        <div class="datatable-empty-title">{{ _("No requests yet") }}</div>
+        <div class="datatable-empty-text">{{ _("Requests parsed from WhatsApp conversations will appear here.") }}</div>
+    </div>
+    {% endif %}
+</div>

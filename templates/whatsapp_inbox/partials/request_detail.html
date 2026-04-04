@@ -1,0 +1,212 @@
+<div data-back-url="/m/whatsapp_inbox/requests" hidden></div>
+
+<div class="p-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h2 class="text-2xl font-bold">{{ inbox_request.reference_number }}</h2>
+            <p class="text-sm mt-1 opacity-60">
+                {{ inbox_request.request_type_display }} &middot;
+                {{ inbox_request.created_at|dateformat("d M Y H:i") }}
+            </p>
+        </div>
+        <span class="badge color-{{ inbox_request.status_class }}">{{ inbox_request.status_display }}</span>
+    </div>
+
+    {% if fulfill_error %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="text-sm text-error">{{ fulfill_error }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Left: Request data (2 cols) -->
+        <div class="md:col-span-2 space-y-4">
+            <!-- Summary -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ icon("chatbubble-outline") }} {{ _("Summary") }}</h3>
+                </div>
+                <div class="card-body">
+                    <p>{{ inbox_request.raw_summary|default(_("No summary available"))|nl2br }}</p>
+                </div>
+            </div>
+
+            <!-- Parsed data (dynamic fields from schema) -->
+            {% if display_fields %}
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ icon("list-outline") }} {{ _("Request Data") }}</h3>
+                    {% if inbox_request.confidence_percent > 0 %}
+                    <span class="badge badge-sm {% if inbox_request.confidence_percent >= 80 %}color-success{% elif inbox_request.confidence_percent >= 50 %}color-warning{% else %}color-error{% endif %}">
+                        {{ _("Confidence") }}: {{ inbox_request.confidence_percent }}%
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    <div class="list">
+                        {% for field in display_fields %}
+                        <div class="list-item">
+                            <div class="list-item-content">
+                                <div class="list-item-label">{{ field.label }}</div>
+                                <div class="list-item-note">
+                                    {% if field.type == 'line_items' %}
+                                        {% for item in field.value %}
+                                        <div class="flex items-center justify-between py-0.5">
+                                            <span>{{ item.name|default(item) }}</span>
+                                            {% if item.quantity %}<span class="opacity-60">x{{ item.quantity }}</span>{% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ field.value }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Raw JSON data (collapsible) -->
+            {% if inbox_request.data %}
+            <div class="card" x-data="{ expanded: false }">
+                <div class="card-header cursor-pointer" @click="expanded = !expanded">
+                    <h3 class="card-title">{{ icon("code-outline") }} {{ _("Raw Data") }}</h3>
+                    <span class="text-sm opacity-60" x-text="expanded ? '{{ _("Hide") }}' : '{{ _("Show") }}'"></span>
+                </div>
+                <div class="card-body" x-show="expanded" x-cloak>
+                    <pre class="text-xs bg-base-200 rounded-lg p-3 overflow-x-auto">{{ inbox_request.data_pretty }}</pre>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Staff notes -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ icon("create-outline") }} {{ _("Notes") }}</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="/m/whatsapp_inbox/requests/{{ inbox_request.id }}/notes">
+                        {{ csrf_input() }}
+                        <textarea name="notes" class="textarea mb-3" rows="3"
+                                  placeholder="{{ _('Internal notes...') }}">{{ inbox_request.notes }}</textarea>
+                        <button type="submit" class="btn btn-sm color-primary">
+                            {{ icon("save-outline") }} {{ _("Save Notes") }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Sidebar (1 col) -->
+        <div class="space-y-4">
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ icon("flash-outline") }} {{ _("Actions") }}</h3>
+                </div>
+                <div class="card-body space-y-2">
+                    {% if inbox_request.status == 'pending_review' %}
+                    <form method="post" action="/m/whatsapp_inbox/requests/{{ inbox_request.id }}/approve">
+                        {{ csrf_input() }}
+                        <button type="submit" class="btn color-success w-full">
+                            {{ icon("checkmark-circle-outline") }} {{ _("Approve") }}
+                        </button>
+                    </form>
+                    <form method="post" action="/m/whatsapp_inbox/requests/{{ inbox_request.id }}/reject">
+                        {{ csrf_input() }}
+                        <button type="submit" class="btn color-error w-full">
+                            {{ icon("close-circle-outline") }} {{ _("Reject") }}
+                        </button>
+                    </form>
+                    {% elif inbox_request.status == 'confirmed' %}
+                    <form method="post" action="/m/whatsapp_inbox/requests/{{ inbox_request.id }}/fulfill">
+                        {{ csrf_input() }}
+                        <button type="submit" class="btn color-success w-full">
+                            {{ icon("checkmark-done-outline") }} {{ _("Mark Fulfilled") }}
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    {% if inbox_request.conversation %}
+                    <a class="btn w-full"
+                       hx-get="/m/whatsapp_inbox/conversation/{{ inbox_request.conversation.id }}"
+                       hx-target="#main-content-area"
+                       hx-push-url="true">
+                        {{ icon("chatbubbles-outline") }} {{ _("View Conversation") }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ icon("information-circle-outline") }} {{ _("Details") }}</h3>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list">
+                        <div class="list-item">
+                            <div class="list-item-content">
+                                <div class="list-item-label">{{ _("Customer") }}</div>
+                            </div>
+                            <div class="list-item-end">
+                                {% if inbox_request.conversation %}
+                                    {{ inbox_request.conversation.contact_name }}
+                                {% else %}
+                                    <span class="opacity-40">&mdash;</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="list-item">
+                            <div class="list-item-content">
+                                <div class="list-item-label">{{ _("Type") }}</div>
+                            </div>
+                            <div class="list-item-end">
+                                <span class="badge badge-sm">{{ inbox_request.request_type_display }}</span>
+                            </div>
+                        </div>
+                        {% if inbox_request.assigned_to_id %}
+                        <div class="list-item">
+                            <div class="list-item-content">
+                                <div class="list-item-label">{{ _("Assigned to") }}</div>
+                            </div>
+                            <div class="list-item-end">{{ inbox_request.assigned_to_id }}</div>
+                        </div>
+                        {% endif %}
+                        {% if inbox_request.confirmed_at %}
+                        <div class="list-item">
+                            <div class="list-item-content">
+                                <div class="list-item-label">{{ _("Confirmed") }}</div>
+                            </div>
+                            <div class="list-item-end text-sm">{{ inbox_request.confirmed_at|dateformat("d M Y H:i") }}</div>
+                        </div>
+                        {% endif %}
+                        {% if inbox_request.fulfilled_at %}
+                        <div class="list-item">
+                            <div class="list-item-content">
+                                <div class="list-item-label">{{ _("Fulfilled") }}</div>
+                            </div>
+                            <div class="list-item-end text-sm">{{ inbox_request.fulfilled_at|dateformat("d M Y H:i") }}</div>
+                        </div>
+                        {% endif %}
+                        {% if inbox_request.linked_module %}
+                        <div class="list-item">
+                            <div class="list-item-content">
+                                <div class="list-item-label">{{ _("Linked to") }}</div>
+                            </div>
+                            <div class="list-item-end">
+                                <span class="badge badge-sm color-primary">{{ inbox_request.linked_module }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
