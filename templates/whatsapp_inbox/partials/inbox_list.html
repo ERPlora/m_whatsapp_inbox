@@ -17,6 +17,7 @@
                   hx-push-url="true"
                   hx-trigger="submit, change from:select"
                   class="flex flex-col md:flex-row gap-3">
+                      {{ csrf_input() }}
                 <div class="input-group flex-1">
                     <span class="input-group-start">{{ icon("search-outline") }}</span>
                     <input type="text" name="q" value="{{ search }}"
