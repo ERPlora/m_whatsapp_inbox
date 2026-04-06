@@ -11,7 +11,6 @@ Models:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
@@ -28,11 +27,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from uuid import UUID
+
 from app.core.db.base import HubBaseModel
 
-if TYPE_CHECKING:
-    from datetime import datetime
-    from uuid import UUID
+from datetime import datetime
 
 
 # ==============================================================================
@@ -196,7 +195,7 @@ class WhatsAppMessage(HubBaseModel):
     body: Mapped[str] = mapped_column(Text, default="", server_default="")
     media_url: Mapped[str] = mapped_column(String(500), default="", server_default="")
     status: Mapped[str] = mapped_column(String(20), default="received", server_default="received")
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+    extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict, server_default="{}")
 
     # Relationships
     conversation: Mapped[WhatsAppConversation] = relationship(
