@@ -97,7 +97,7 @@ async def _get_plan_info() -> dict | None:
             return None
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
-                f"{cloud_url}/api/hub/device/whatsapp/plan/",
+                f"{cloud_url}/api/v1/hub/device/whatsapp/plan/",
                 headers={"X-Hub-Token": auth_token},
             )
             if resp.status_code == 200:
@@ -115,7 +115,7 @@ async def _get_connected_numbers() -> list[dict]:
             return []
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
-                f"{cloud_url}/api/hub/device/whatsapp/numbers/",
+                f"{cloud_url}/api/v1/hub/device/whatsapp/numbers/",
                 headers={"X-Hub-Token": auth_token},
             )
             if resp.status_code == 200:
@@ -272,7 +272,7 @@ async def conversation_send(
                 if auth_token:
                     async with httpx.AsyncClient(timeout=10) as client:
                         await client.post(
-                            f"{cloud_url}/api/hub/device/tasks/",
+                            f"{cloud_url}/api/v1/hub/device/tasks/",
                             json={
                                 "task": "whatsapp.send_message",
                                 "payload": {
@@ -634,7 +634,7 @@ async def whatsapp_connect(request: Request, db: DbSession, user: CurrentUser, h
 
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
-                f"{cloud_url}/api/hub/device/whatsapp/connect/",
+                f"{cloud_url}/api/v1/hub/device/whatsapp/connect/",
                 json={"code": code, "employee_id": employee_id},
                 headers={"X-Hub-Token": auth_token, "Content-Type": "application/json"},
             )
@@ -688,7 +688,7 @@ async def whatsapp_disconnect(
         if auth_token:
             async with httpx.AsyncClient(timeout=10) as client:
                 await client.post(
-                    f"{cloud_url}/api/hub/device/whatsapp/disconnect/{phone_number_id}/",
+                    f"{cloud_url}/api/v1/hub/device/whatsapp/disconnect/{phone_number_id}/",
                     json={},
                     headers={"X-Hub-Token": auth_token, "Content-Type": "application/json"},
                 )
