@@ -371,7 +371,7 @@ function startWhatsAppConnect(employeeId) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-CSRFToken': getCsrfToken(),
                 },
                 body: JSON.stringify({
                     code: response.authResponse.code,
