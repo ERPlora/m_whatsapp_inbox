@@ -119,7 +119,7 @@ class EmployeeWhatsAppLink(HubBaseModel):
     )
 
     employee_id: Mapped[UUID] = mapped_column(
-        Uuid, ForeignKey("accounts_localuser.id", ondelete="CASCADE"), nullable=False,
+        Uuid, ForeignKey("local_user.id", ondelete="CASCADE"), nullable=False,
     )
     phone_number_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     display_phone: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -148,7 +148,7 @@ class WhatsAppConversation(HubBaseModel):
         Uuid, ForeignKey("customers_customer.id", ondelete="SET NULL"), nullable=True,
     )
     assigned_to_id: Mapped[UUID | None] = mapped_column(
-        Uuid, ForeignKey("accounts_localuser.id", ondelete="SET NULL"), nullable=True,
+        Uuid, ForeignKey("local_user.id", ondelete="SET NULL"), nullable=True,
     )
     phone_number_id: Mapped[str] = mapped_column(String(50), default="", server_default="")
     wa_contact_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
@@ -249,7 +249,7 @@ class InboxRequest(HubBaseModel):
     # Staff
     notes: Mapped[str] = mapped_column(Text, default="", server_default="")
     assigned_to_id: Mapped[UUID | None] = mapped_column(
-        Uuid, ForeignKey("accounts_localuser.id", ondelete="SET NULL"), nullable=True,
+        Uuid, ForeignKey("local_user.id", ondelete="SET NULL"), nullable=True,
     )
 
     # Link to created object in another module
