@@ -22,7 +22,7 @@ def whatsapp_settings_data():
         "greeting_message": "Welcome!",
         "out_of_hours_message": "We are closed.",
         "input_modules": ["inventory"],
-        "output_modules": ["reservations"],
+        "output_modules": ["table_reservations"],
         "request_schema": {
             "fields": [
                 {"key": "party_size", "type": "number", "label": "Party size", "required": True},

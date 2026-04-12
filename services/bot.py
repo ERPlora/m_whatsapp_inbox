@@ -46,7 +46,7 @@ INPUT_MODULE_REGISTRY: dict[str, dict[str, Any]] = {
 # Maps module_id -> which request_types it handles
 OUTPUT_MODULE_REGISTRY: dict[str, list[str]] = {
     "orders": ["order"],
-    "reservations": ["reservation"],
+    "table_reservations": ["reservation"],
     "appointments": ["appointment"],
     "quotes": ["quote"],
 }

@@ -19,7 +19,7 @@ class TestGetAllowedRequestTypes:
         assert get_allowed_request_types(["orders"]) == {"order"}
 
     def test_multiple_modules(self):
-        result = get_allowed_request_types(["orders", "reservations"])
+        result = get_allowed_request_types(["orders", "table_reservations"])
         assert result == {"order", "reservation"}
 
     def test_unknown_module(self):
