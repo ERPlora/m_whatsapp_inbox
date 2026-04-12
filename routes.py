@@ -155,7 +155,7 @@ def _build_setup_notice(settings: WhatsAppInboxSettings, connected_numbers=None)
 
 @router.get("/")
 @router.get("/inbox")
-@htmx_view(module_id="whatsapp_inbox", view_id="inbox")
+@htmx_view(module_id="whatsapp_inbox", view_id="inbox", partial_template="whatsapp_inbox/partials/inbox_list.html")
 async def inbox(request: Request, db: DbSession, user: CurrentUser, hub_id: HubId):
     settings = await _get_settings(db, hub_id)
     query = _q(WhatsAppConversation, db, hub_id)
@@ -198,7 +198,7 @@ async def inbox(request: Request, db: DbSession, user: CurrentUser, hub_id: HubI
 
 
 @router.get("/conversation/{pk}")
-@htmx_view(module_id="whatsapp_inbox", view_id="inbox")
+@htmx_view(module_id="whatsapp_inbox", view_id="inbox", partial_template="whatsapp_inbox/partials/inbox_list.html")
 async def conversation_detail(
     request: Request, pk: str, db: DbSession, user: CurrentUser, hub_id: HubId,
 ):
