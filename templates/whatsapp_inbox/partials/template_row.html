@@ -1,0 +1,50 @@
+<tr id="wa-template-row-{{ template.id }}">
+    <td>
+        <a class="font-medium hover:text-primary cursor-pointer"
+           hx-get="/m/whatsapp_inbox/templates/{{ template.id }}"
+           hx-target="#main-content-area"
+           hx-push-url="true">
+            {{ template.name }}
+        </a>
+    </td>
+    <td class="hidden md:table-cell">
+        <span class="badge badge-sm color-neutral">{{ template.category_label }}</span>
+    </td>
+    <td class="hidden md:table-cell text-sm opacity-70">
+        {{ template.language|upper }}
+    </td>
+    <td>
+        {% if template.meta_status == "approved" %}
+        <span class="badge badge-sm color-success">{{ _("Approved") }}</span>
+        {% elif template.meta_status == "rejected" %}
+        <span class="badge badge-sm color-error">{{ _("Rejected") }}</span>
+        {% else %}
+        <span class="badge badge-sm color-warning">{{ _("Pending") }}</span>
+        {% endif %}
+    </td>
+    <td class="hidden lg:table-cell text-sm opacity-60">
+        {% if template.updated_at %}
+        {{ template.updated_at.strftime("%d/%m/%Y") }}
+        {% elif template.created_at %}
+        {{ template.created_at.strftime("%d/%m/%Y") }}
+        {% else %}
+        —
+        {% endif %}
+    </td>
+    <td class="text-right">
+        <div class="flex items-center justify-end gap-1">
+            <a class="btn btn-sm btn-ghost"
+               hx-get="/m/whatsapp_inbox/templates/{{ template.id }}"
+               hx-target="#main-content-area"
+               hx-push-url="true"
+               title="{{ _('Edit') }}">
+                {{ icon("create-outline") }}
+            </a>
+            <button class="btn btn-sm btn-ghost"
+                    @click="deleteTarget = { name: '{{ template.name|replace("'", "\\'") }}', url: '/m/whatsapp_inbox/templates/{{ template.id }}/delete' }; deleteConfirm = true"
+                    title="{{ _('Delete') }}">
+                {{ icon("trash-outline") }}
+            </button>
+        </div>
+    </td>
+</tr>

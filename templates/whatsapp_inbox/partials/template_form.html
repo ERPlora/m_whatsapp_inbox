@@ -1,0 +1,162 @@
+<div data-back-url="/m/whatsapp_inbox/templates" hidden></div>
+
+<div class="p-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <a class="btn btn-ghost btn-sm btn-circle"
+               hx-get="/m/whatsapp_inbox/templates"
+               hx-target="#main-content-area"
+               hx-push-url="true"
+               title="{{ _('Back') }}">
+                {{ icon("arrow-back-outline") }}
+            </a>
+            <h1 class="text-2xl font-bold">
+                {% if template %}{{ _("Edit Template") }}{% else %}{{ _("New Template") }}{% endif %}
+            </h1>
+            {% if template %}
+            <span class="badge badge-sm color-{{ template.meta_status_class }}">
+                {{ template.meta_status_label }}
+            </span>
+            {% endif %}
+        </div>
+        <div class="flex gap-2">
+            {% if template %}
+            <button class="btn btn-sm btn-ghost"
+                    hx-post="/m/whatsapp_inbox/templates/{{ template.id }}/sync-meta"
+                    hx-target="#main-content-area"
+                    title="{{ _('Sync status with Meta Business Manager') }}">
+                {{ icon("sync-outline") }} {{ _("Sync with Meta") }}
+            </button>
+            {% endif %}
+            <button type="submit" form="wa-template-form" class="btn btn-sm color-primary">
+                {{ icon("checkmark-outline") }} {{ _("Save") }}
+            </button>
+        </div>
+    </div>
+
+    <form id="wa-template-form"
+          hx-post="/m/whatsapp_inbox/templates/{% if template %}{{ template.id }}{% else %}new{% endif %}"
+          hx-target="#main-content-area">
+        {{ csrf_input() }}
+
+        <!-- Basic Info -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ icon("logo-whatsapp", class="text-primary") }} {{ _("Template Info") }}</h3>
+            </div>
+            <div class="card-body flex flex-col gap-4">
+                <div class="form-group">
+                    <label class="form-group-label">{{ _("Template Name") }} *</label>
+                    <input type="text" name="name" class="input w-full"
+                           value="{{ template.name if template else '' }}"
+                           placeholder="{{ _('e.g. order_confirmation, appointment_reminder') }}"
+                           required autofocus>
+                    <p class="text-xs opacity-60 mt-1">{{ _("Use only lowercase letters, numbers, and underscores. This name is used in the Meta API.") }}</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-group-label">{{ _("Language") }} *</label>
+                        <select name="language" class="select w-full">
+                            {% set current_lang = template.language if template else 'es' %}
+                            <option value="es" {% if current_lang == 'es' %}selected{% endif %}>{{ _("Spanish (es)") }}</option>
+                            <option value="en" {% if current_lang == 'en' %}selected{% endif %}>{{ _("English (en)") }}</option>
+                            <option value="fr" {% if current_lang == 'fr' %}selected{% endif %}>{{ _("French (fr)") }}</option>
+                            <option value="de" {% if current_lang == 'de' %}selected{% endif %}>{{ _("German (de)") }}</option>
+                            <option value="it" {% if current_lang == 'it' %}selected{% endif %}>{{ _("Italian (it)") }}</option>
+                            <option value="pt" {% if current_lang == 'pt' %}selected{% endif %}>{{ _("Portuguese (pt)") }}</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-group-label">{{ _("Category") }} *</label>
+                        <select name="category" class="select w-full">
+                            {% set current_cat = template.category if template else 'UTILITY' %}
+                            <option value="UTILITY" {% if current_cat == 'UTILITY' %}selected{% endif %}>{{ _("Utility") }}</option>
+                            <option value="MARKETING" {% if current_cat == 'MARKETING' %}selected{% endif %}>{{ _("Marketing") }}</option>
+                            <option value="AUTHENTICATION" {% if current_cat == 'AUTHENTICATION' %}selected{% endif %}>{{ _("Authentication") }}</option>
+                        </select>
+                        <p class="text-xs opacity-60 mt-1">{{ _("Meta uses this to determine delivery rules and pricing.") }}</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-group-label">{{ _("Variables") }}</label>
+                    <input type="text" name="variables" class="input w-full"
+                           value="{{ (template.variables or [])|join(', ') if template else '' }}"
+                           placeholder="{{ _('1, 2, 3') }}">
+                    <p class="text-xs opacity-60 mt-1">{{ _("Comma-separated variable positions used in this template, e.g. 1, 2, 3 for {{1}}, {{2}}, {{3}}.") }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Template Content -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ icon("chatbubble-outline", class="text-primary") }} {{ _("Template Content") }}</h3>
+            </div>
+            <div class="card-body flex flex-col gap-4">
+                <div class="form-group">
+                    <label class="form-group-label">{{ _("Header") }} <span class="text-xs opacity-50">({{ _("optional") }})</span></label>
+                    <input type="text" name="header" class="input w-full"
+                           value="{{ template.header if template else '' }}"
+                           placeholder="{{ _('e.g. Order Update') }}">
+                    <p class="text-xs opacity-60 mt-1">{{ _("Short header text displayed at the top of the message.") }}</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-group-label">{{ _("Body") }} *</label>
+                    <textarea name="body" class="input w-full"
+                              rows="6"
+                              placeholder="{{ _('Hello {{1}}, your order {{2}} has been confirmed. Expected delivery: {{3}}.') }}">{{ template.body if template else '' }}</textarea>
+                    <p class="text-xs opacity-60 mt-1">{{ _("Use {{1}}, {{2}}, {{3}}... for dynamic variables. This is the main message content.") }}</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-group-label">{{ _("Footer") }} <span class="text-xs opacity-50">({{ _("optional") }})</span></label>
+                    <input type="text" name="footer" class="input w-full"
+                           value="{{ template.footer if template else '' }}"
+                           placeholder="{{ _('e.g. Reply STOP to unsubscribe') }}">
+                    <p class="text-xs opacity-60 mt-1">{{ _("Short footer text displayed at the bottom of the message.") }}</p>
+                </div>
+            </div>
+        </div>
+
+        {% if template %}
+        <!-- Meta Info (read-only) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ icon("information-circle-outline", class="text-primary") }} {{ _("Meta Status") }}</h3>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-xs opacity-60 mb-1">{{ _("Approval Status") }}</div>
+                        <span class="badge badge-sm color-{{ template.meta_status_class }}">
+                            {{ template.meta_status_label }}
+                        </span>
+                    </div>
+                    {% if template.meta_template_id %}
+                    <div>
+                        <div class="text-xs opacity-60 mb-1">{{ _("Meta Template ID") }}</div>
+                        <code class="text-xs">{{ template.meta_template_id }}</code>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if template.meta_status == 'pending' %}
+                <div class="alert color-warning mt-4 text-sm">
+                    {{ icon("warning-outline") }}
+                    {{ _("This template is pending approval. Submit it to Meta Business Manager to get it approved before using it in campaigns.") }}
+                </div>
+                {% elif template.meta_status == 'rejected' %}
+                <div class="alert color-error mt-4 text-sm">
+                    {{ icon("close-circle-outline") }}
+                    {{ _("This template was rejected by Meta. Review the content and resubmit.") }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </form>
+</div>

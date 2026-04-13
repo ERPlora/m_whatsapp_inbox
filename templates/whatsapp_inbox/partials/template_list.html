@@ -1,0 +1,149 @@
+<div class="p-4" x-data="{
+    deleteConfirm: false,
+    deleteTarget: null,
+    confirmDelete() {
+        if (this.deleteTarget) {
+            htmx.ajax('POST', this.deleteTarget.url, {
+                target: '#main-content-area',
+                swap: 'innerHTML'
+            });
+        }
+        this.deleteConfirm = false;
+        this.deleteTarget = null;
+    }
+}">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h2 class="text-2xl font-bold">{{ _("WhatsApp Templates") }}</h2>
+            <p class="text-sm mt-1 opacity-60">{{ _("Meta-approved message templates for outbound WhatsApp messages") }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a class="btn btn-sm color-primary"
+               hx-get="/m/whatsapp_inbox/templates/new"
+               hx-target="#main-content-area"
+               hx-push-url="true">
+                {{ icon("add-outline") }} {{ _("New Template") }}
+            </a>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="mb-4">
+        <form hx-get="/m/whatsapp_inbox/templates"
+              hx-target="#main-content-area"
+              hx-push-url="true"
+              class="flex gap-2">
+            <div class="input-group flex-1">
+                <span class="input-group-addon">{{ icon("search-outline") }}</span>
+                <input type="text" name="q" value="{{ q|default('') }}"
+                       class="input w-full"
+                       placeholder="{{ _('Search templates…') }}"
+                       hx-get="/m/whatsapp_inbox/templates"
+                       hx-target="#main-content-area"
+                       hx-push-url="true"
+                       hx-trigger="input changed delay:400ms, search"
+                       autocomplete="off">
+            </div>
+        </form>
+    </div>
+
+    {% if templates %}
+    <div class="card">
+        <table class="table w-full">
+            <thead>
+                <tr>
+                    <th>{{ _("Name") }}</th>
+                    <th class="hidden md:table-cell">{{ _("Category") }}</th>
+                    <th class="hidden md:table-cell">{{ _("Language") }}</th>
+                    <th>{{ _("Meta Status") }}</th>
+                    <th class="hidden lg:table-cell">{{ _("Updated") }}</th>
+                    <th class="text-right">{{ _("Actions") }}</th>
+                </tr>
+            </thead>
+            <tbody id="wa-template-list">
+                {% for template in templates %}
+                {% include "whatsapp_inbox/partials/template_row.html" %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if total > per_page %}
+    <div class="flex items-center justify-between mt-4">
+        <div class="text-sm opacity-60">
+            {{ _("Showing") }} {{ ((page - 1) * per_page) + 1 }}–{{ [page * per_page, total]|min }}
+            {{ _("of") }} {{ total }}
+        </div>
+        <div class="flex gap-2">
+            {% if page > 1 %}
+            <a class="btn btn-sm btn-ghost"
+               hx-get="/m/whatsapp_inbox/templates?page={{ page - 1 }}&q={{ q|default('') }}"
+               hx-target="#main-content-area"
+               hx-push-url="true">
+                {{ icon("chevron-back-outline") }} {{ _("Previous") }}
+            </a>
+            {% endif %}
+            {% if has_next %}
+            <a class="btn btn-sm btn-ghost"
+               hx-get="/m/whatsapp_inbox/templates?page={{ page + 1 }}&q={{ q|default('') }}"
+               hx-target="#main-content-area"
+               hx-push-url="true">
+                {{ _("Next") }} {{ icon("chevron-forward-outline") }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="datatable-empty">
+        <div class="datatable-empty-icon">{{ icon("logo-whatsapp") }}</div>
+        <div class="datatable-empty-title">
+            {% if q %}{{ _("No templates found") }}{% else %}{{ _("No templates yet") }}{% endif %}
+        </div>
+        <div class="datatable-empty-text">
+            {% if q %}
+            {{ _("Try a different search term.") }}
+            {% else %}
+            {{ _("Create a WhatsApp template and submit it to Meta Business Manager for approval.") }}
+            {% endif %}
+        </div>
+        {% if not q %}
+        <a class="btn btn-sm color-primary mt-4"
+           hx-get="/m/whatsapp_inbox/templates/new"
+           hx-target="#main-content-area"
+           hx-push-url="true">
+            {{ icon("add-outline") }} {{ _("New Template") }}
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-backdrop" :data-state="deleteConfirm ? 'open' : 'closed'" @click.self="deleteConfirm = false; deleteTarget = null">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3 class="modal-title">{{ _("Delete Template") }}</h3>
+                <button class="modal-close" @click="deleteConfirm = false; deleteTarget = null">
+                    {{ icon("close-outline") }}
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="text-sm text-base-content/70">
+                    {{ _("Are you sure you want to delete") }} <strong x-text="deleteTarget?.name"></strong>?
+                    {{ _("This action cannot be undone.") }}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost btn-sm" @click="deleteConfirm = false; deleteTarget = null">
+                    {{ _("Cancel") }}
+                </button>
+                <button class="btn btn-sm color-error" @click="confirmDelete()">
+                    {{ icon("trash-outline") }} {{ _("Delete") }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
