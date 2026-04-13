@@ -12,7 +12,7 @@ dynamic imports via import_module(f'{module_id}.whatsapp').
 # ---------------------------------------------------------------------------
 MODULE_ID = "whatsapp_inbox"
 MODULE_NAME = "WhatsApp Inbox"
-MODULE_VERSION = "2.0.0"
+MODULE_VERSION = "2.1.0"
 MODULE_ICON = "logo-whatsapp"
 MODULE_DESCRIPTION = "Receive and process WhatsApp Business messages with AI-powered auto-reply and request management"
 MODULE_AUTHOR = "ERPlora"

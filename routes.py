@@ -27,8 +27,9 @@ from .models import (
     WhatsAppConversation,
     WhatsAppInboxSettings,
     WhatsAppMessage,
+    WhatsAppTemplate,
 )
-from .services import bot
+from . import bot
 
 logger = logging.getLogger(__name__)
 
@@ -464,7 +465,7 @@ async def request_fulfill(
         return JSONResponse({"error": "Forbidden"}, status_code=403)
 
     if inbox_request.status == "confirmed":
-        from .services.actions import execute_action, has_action_handler
+        from .actions import execute_action, has_action_handler
 
         if not inbox_request.linked_module and has_action_handler(inbox_request.request_type):
             action_result = await execute_action(inbox_request, db)
@@ -706,3 +707,221 @@ async def whatsapp_disconnect(
         logger.exception("Failed to disconnect WhatsApp number %s", phone_number_id)
 
     return htmx_redirect("/m/whatsapp_inbox/settings")
+
+
+# ==============================================================================
+# WhatsApp Templates
+# ==============================================================================
+
+@router.get("/templates")
+@htmx_view(module_id="whatsapp_inbox", view_id="templates")
+async def templates_list(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    hub_id: HubId,
+    q: str = "",
+    page: int = 1,
+    per_page: int = 25,
+):
+    """List WhatsApp templates with search and pagination."""
+    query = _q(WhatsAppTemplate, db, hub_id)
+
+    if q:
+        query = query.filter(
+            WhatsAppTemplate.name.ilike(f"%{q}%"),
+        )
+
+    total = await query.count()
+    templates = await query.order_by(
+        WhatsAppTemplate.name.asc(),
+    ).offset((page - 1) * per_page).limit(per_page).all()
+
+    return {
+        "templates": templates,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "has_next": (page * per_page) < total,
+        "q": q,
+    }
+
+
+@router.get("/templates/new")
+@htmx_view(module_id="whatsapp_inbox", view_id="template_new")
+async def template_new_form(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    hub_id: HubId,
+):
+    """New WhatsApp template form."""
+    return {"template": None}
+
+
+@router.post("/templates/new")
+async def template_create(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    hub_id: HubId,
+):
+    """Create a new WhatsApp template."""
+    form = await request.form()
+    name = form.get("name", "").strip()
+    language = form.get("language", "es").strip()
+    category = form.get("category", "UTILITY").strip()
+    header = form.get("header", "").strip()
+    body = form.get("body", "").strip()
+    footer = form.get("footer", "").strip()
+    variables_raw = form.get("variables", "").strip()
+
+    if not name:
+        add_message(request, "error", "Template name is required")
+        return htmx_redirect("/m/whatsapp_inbox/templates/new")
+
+    if category not in ("MARKETING", "UTILITY", "AUTHENTICATION"):
+        add_message(request, "error", "Invalid category")
+        return htmx_redirect("/m/whatsapp_inbox/templates/new")
+
+    variables = [v.strip() for v in variables_raw.split(",") if v.strip()] if variables_raw else []
+
+    async with atomic(db) as session:
+        template = WhatsAppTemplate(
+            hub_id=hub_id,
+            name=name,
+            language=language,
+            category=category,
+            header=header,
+            body=body,
+            footer=footer,
+            variables=variables,
+            meta_status="pending",
+            is_active=True,
+        )
+        session.add(template)
+        await session.flush()
+
+    add_message(request, "success", f"Template '{name}' created")
+    return htmx_redirect(f"/m/whatsapp_inbox/templates/{template.id}")
+
+
+@router.get("/templates/{pk}")
+@htmx_view(module_id="whatsapp_inbox", view_id="template_detail")
+async def template_detail(
+    request: Request,
+    pk: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+    hub_id: HubId,
+):
+    """WhatsApp template detail / edit form."""
+    template = await _q(WhatsAppTemplate, db, hub_id).get(pk)
+    if template is None:
+        return JSONResponse({"error": "Template not found"}, status_code=404)
+
+    return {"template": template}
+
+
+@router.post("/templates/{pk}")
+async def template_update(
+    request: Request,
+    pk: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+    hub_id: HubId,
+):
+    """Update a WhatsApp template."""
+    template = await _q(WhatsAppTemplate, db, hub_id).get(pk)
+    if template is None:
+        return JSONResponse({"error": "Template not found"}, status_code=404)
+
+    form = await request.form()
+    name = form.get("name", "").strip()
+    language = form.get("language", "es").strip()
+    category = form.get("category", "UTILITY").strip()
+    header = form.get("header", "").strip()
+    body = form.get("body", "").strip()
+    footer = form.get("footer", "").strip()
+    variables_raw = form.get("variables", "").strip()
+
+    if not name:
+        add_message(request, "error", "Template name is required")
+        return htmx_redirect(f"/m/whatsapp_inbox/templates/{pk}")
+
+    if category not in ("MARKETING", "UTILITY", "AUTHENTICATION"):
+        add_message(request, "error", "Invalid category")
+        return htmx_redirect(f"/m/whatsapp_inbox/templates/{pk}")
+
+    variables = [v.strip() for v in variables_raw.split(",") if v.strip()] if variables_raw else []
+
+    # Check if content changed — reset meta_status to pending
+    content_changed = (
+        template.name != name
+        or template.language != language
+        or template.category != category
+        or template.header != header
+        or template.body != body
+        or template.footer != footer
+    )
+
+    async with atomic(db) as session:
+        template.name = name
+        template.language = language
+        template.category = category
+        template.header = header
+        template.body = body
+        template.footer = footer
+        template.variables = variables
+        if content_changed:
+            template.meta_status = "pending"
+        await session.flush()
+
+    add_message(request, "success", f"Template '{name}' saved")
+    if content_changed:
+        add_message(request, "info", "Meta status reset to pending — resubmit to Meta Business Manager for approval")
+    return htmx_redirect(f"/m/whatsapp_inbox/templates/{pk}")
+
+
+@router.post("/templates/{pk}/delete")
+async def template_delete(
+    request: Request,
+    pk: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+    hub_id: HubId,
+):
+    """Delete a WhatsApp template."""
+    template = await _q(WhatsAppTemplate, db, hub_id).get(pk)
+    if template is None:
+        return JSONResponse({"error": "Template not found"}, status_code=404)
+
+    name = template.name
+    async with atomic(db) as session:
+        await session.delete(template)
+
+    add_message(request, "success", f"Template '{name}' deleted")
+    return htmx_redirect("/m/whatsapp_inbox/templates")
+
+
+@router.post("/templates/{pk}/sync-meta")
+async def template_sync_meta(
+    request: Request,
+    pk: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+    hub_id: HubId,
+):
+    """Sync a WhatsApp template with Meta Business Manager (placeholder)."""
+    template = await _q(WhatsAppTemplate, db, hub_id).get(pk)
+    if template is None:
+        return JSONResponse({"error": "Template not found"}, status_code=404)
+
+    logger.info(
+        "[whatsapp_inbox] sync-meta called for template %s (%s) — not yet implemented",
+        template.id,
+        template.name,
+    )
+
+    add_message(request, "info", "Sync with Meta is not yet implemented. Coming soon.")
+    return htmx_redirect(f"/m/whatsapp_inbox/templates/{pk}")

@@ -469,7 +469,7 @@ class RequestService(ModuleService):
     ):
         """Mark a confirmed request as fulfilled, optionally creating the linked object."""
         from whatsapp_inbox.models import InboxRequest
-        from whatsapp_inbox.services.actions import execute_action
+        from whatsapp_inbox.actions import execute_action
 
         r = await self.q(InboxRequest).get(request_id)
         if r.status != "confirmed":

@@ -4,7 +4,7 @@ Tests for whatsapp_inbox bot service.
 
 from __future__ import annotations
 
-from whatsapp_inbox.services.bot import (
+from whatsapp_inbox.bot import (
     DEFAULT_SCHEMAS,
     get_allowed_request_types,
     validate_request_schema,
