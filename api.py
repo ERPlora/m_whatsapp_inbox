@@ -4,7 +4,9 @@ WhatsApp Inbox REST API endpoints — FastAPI router.
 Mounted at /api/v1/m/whatsapp_inbox/ by ModuleRuntime.
 
 Endpoints:
-- POST /webhook/incoming/ — Lambda whatsapp-worker sends processed messages here
+- GET  /webhooks/meta/{account_id}  — Meta webhook verification challenge
+- POST /webhooks/meta/{account_id}  — Meta Cloud API incoming messages
+- POST /webhook/incoming/           — Lambda whatsapp-worker sends processed messages here
 """
 
 from __future__ import annotations
@@ -15,11 +17,13 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import select
 
 from app.core.dependencies import DbSession
 
+from .drivers.webhook import verify_signature, verify_webhook
+from .drivers.whatsapp_business import WhatsAppDriver
 from .models import (
     InboxRequest,
     WhatsAppConversation,
@@ -33,6 +37,7 @@ router = APIRouter()
 
 # Shared secret for Lambda authentication
 _WHATSAPP_WEBHOOK_SECRET = os.environ.get("WHATSAPP_WEBHOOK_SECRET", "")
+_WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "")
 
 
 def _check_auth(request: Request) -> bool:
@@ -40,6 +45,177 @@ def _check_auth(request: Request) -> bool:
     if not _WHATSAPP_WEBHOOK_SECRET:
         return True  # Dev mode: no secret set
     return request.headers.get("X-Whatsapp-Secret", "") == _WHATSAPP_WEBHOOK_SECRET
+
+
+# ---------------------------------------------------------------------------
+# GET /webhooks/meta/{account_id} — Meta verification challenge
+# ---------------------------------------------------------------------------
+
+@router.get("/webhooks/meta/{account_id}")
+async def meta_webhook_verify(request: Request, account_id: str) -> PlainTextResponse:
+    """
+    Handle Meta Cloud API webhook GET verification.
+
+    Meta sends: hub.mode=subscribe, hub.verify_token, hub.challenge
+    We respond with hub.challenge if the verify_token matches.
+    """
+    return await verify_webhook(request, account_id)
+
+
+# ---------------------------------------------------------------------------
+# POST /webhooks/meta/{account_id} — Meta Cloud API incoming messages
+# ---------------------------------------------------------------------------
+
+@router.post("/webhooks/meta/{account_id}")
+async def meta_webhook_incoming(
+    request: Request,
+    account_id: str,
+    db: DbSession,
+) -> JSONResponse:
+    """
+    Receive raw WhatsApp webhook POST from Meta Cloud API.
+
+    Validates X-Hub-Signature-256 HMAC if WHATSAPP_APP_SECRET is set.
+    Normalizes payload via WhatsAppDriver and persists conversations + messages.
+    """
+    body = await request.body()
+
+    # Signature validation (skip in dev if no app secret configured)
+    if _WHATSAPP_APP_SECRET:
+        sig = request.headers.get("X-Hub-Signature-256", "")
+        if not verify_signature(body, sig, _WHATSAPP_APP_SECRET):
+            logger.warning(
+                "[WhatsApp webhook] Invalid signature for account %s", account_id,
+            )
+            return JSONResponse({"error": "invalid signature"}, status_code=403)
+
+    try:
+        import json as _json
+        payload = _json.loads(body)
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, status_code=400)
+
+    driver = WhatsAppDriver()
+    try:
+        inbound_messages = await driver.normalize_webhook(payload)
+    except Exception:
+        logger.exception("[WhatsApp webhook] normalize_webhook failed for account %s", account_id)
+        return JSONResponse({"error": "parse error"}, status_code=500)
+
+    if not inbound_messages:
+        # Delivery receipts / status updates — acknowledge immediately
+        return JSONResponse({"status": "ok", "processed": 0})
+
+    created_count = 0
+    for inbound in inbound_messages:
+        try:
+            hub_uuid = await _resolve_hub_id_from_account(account_id, db)
+            if not hub_uuid:
+                logger.warning(
+                    "[WhatsApp webhook] Could not resolve hub for account_id=%s", account_id,
+                )
+                continue
+
+            # Idempotency check
+            existing = await db.execute(
+                select(WhatsAppMessage).where(
+                    WhatsAppMessage.hub_id == hub_uuid,
+                    WhatsAppMessage.wa_message_id == inbound.external_message_id,
+                    WhatsAppMessage.is_deleted.is_(False),
+                )
+            )
+            if existing.scalar_one_or_none():
+                continue
+
+            conversation, _ = await _get_or_create_conversation(
+                db,
+                hub_uuid,
+                _ConvData(
+                    wa_contact_id=inbound.external_thread_id,
+                    contact_name=inbound.metadata.get("sender_name", inbound.from_identifier),
+                    contact_phone=inbound.from_identifier,
+                    phone_number_id=inbound.metadata.get("phone_number_id", ""),
+                    assigned_employee_id=None,
+                ),
+                assigned_employee_id=None,
+            )
+
+            message = WhatsAppMessage(
+                hub_id=hub_uuid,
+                conversation_id=conversation.id,
+                direction="inbound",
+                wa_message_id=inbound.external_message_id,
+                message_type=inbound.metadata.get("message_type", "text"),
+                body=inbound.body,
+                status="received",
+                extra_metadata=inbound.metadata,
+            )
+            db.add(message)
+
+            conversation.last_message_at = datetime.now(datetime.UTC)
+            conversation.unread_count = (conversation.unread_count or 0) + 1
+
+            await db.flush()
+            created_count += 1
+
+        except Exception:
+            logger.exception(
+                "[WhatsApp webhook] Failed to persist message %s", inbound.external_message_id,
+            )
+            continue
+
+    await db.commit()
+    return JSONResponse({"status": "ok", "processed": created_count})
+
+
+# ---------------------------------------------------------------------------
+# Helpers for Meta webhook
+# ---------------------------------------------------------------------------
+
+class _ConvData:
+    """Lightweight DTO for conversation lookup/create."""
+    def __init__(
+        self,
+        wa_contact_id: str,
+        contact_name: str,
+        contact_phone: str,
+        phone_number_id: str,
+        assigned_employee_id,
+    ):
+        self.wa_contact_id = wa_contact_id
+        self.contact_name = contact_name
+        self.contact_phone = contact_phone
+        self.phone_number_id = phone_number_id
+        self.assigned_employee_id = assigned_employee_id
+
+
+async def _resolve_hub_id_from_account(account_id: str, db: DbSession):
+    """Resolve hub_id from a phone_number_id or account_id string.
+
+    Currently uses the hub_id stored in WhatsAppInboxSettings that matches
+    the phone_number_id. Falls back to treating account_id as a hub UUID.
+    """
+    try:
+        return uuid.UUID(account_id)
+    except ValueError:
+        pass
+
+    # Try looking up by phone_number_id in EmployeeWhatsAppLink
+    try:
+        from .models import EmployeeWhatsAppLink
+        result = await db.execute(
+            select(EmployeeWhatsAppLink).where(
+                EmployeeWhatsAppLink.phone_number_id == account_id,
+                EmployeeWhatsAppLink.is_active.is_(True),
+            ).limit(1)
+        )
+        link = result.scalar_one_or_none()
+        if link:
+            return link.hub_id
+    except Exception:
+        pass
+
+    return None
 
 
 # ---------------------------------------------------------------------------

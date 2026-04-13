@@ -20,6 +20,7 @@ from whatsapp_inbox.models import (  # noqa: F401
     WhatsAppConversation,
     WhatsAppInboxSettings,
     WhatsAppMessage,
+    WhatsAppTemplate,
 )
 
 config = context.config

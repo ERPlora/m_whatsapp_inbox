@@ -11,6 +11,8 @@ from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
 
+import uuid as _uuid_module
+
 from app.core.db.query import HubQuery
 from app.core.db.transactions import atomic
 from app.modules.services import ModuleService, action
@@ -705,4 +707,197 @@ class SettingsService(ModuleService):
             "enabled_modules": enabled_modules,
             "pending_activation_modules": pending_activation,
             "restart_required": restart_required,
+        }
+
+
+# ============================================================================
+# WhatsApp Template Service
+# ============================================================================
+
+
+class WhatsAppTemplateService(ModuleService):
+    """WhatsApp template management — create, list, update, delete, sync with Meta."""
+
+    @action(permission="manage_settings")
+    async def list_templates(self, *, active_only: bool = True, limit: int = 50):
+        """List WhatsApp templates for this hub."""
+        from whatsapp_inbox.models import WhatsAppTemplate
+
+        query = self.q(WhatsAppTemplate)
+        if active_only:
+            query = query.filter(WhatsAppTemplate.is_active == True)  # noqa: E712
+
+        total = await query.count()
+        templates = await query.order_by(WhatsAppTemplate.name.asc()).limit(limit).all()
+
+        return {
+            "templates": [{
+                "id": str(t.id),
+                "name": t.name,
+                "language": t.language,
+                "category": t.category,
+                "category_label": t.category_label,
+                "meta_status": t.meta_status,
+                "meta_status_label": t.meta_status_label,
+                "variables": t.variables,
+                "is_active": t.is_active,
+                "created_at": str(t.created_at) if t.created_at else None,
+            } for t in templates],
+            "total": total,
+        }
+
+    @action(permission="manage_settings")
+    async def get_template(self, *, template_id: str):
+        """Get full details of a WhatsApp template."""
+        from whatsapp_inbox.models import WhatsAppTemplate
+
+        t = await self.q(WhatsAppTemplate).get(_uuid_module.UUID(template_id))
+        if t is None:
+            return {"error": "Template not found"}
+        return {
+            "id": str(t.id),
+            "name": t.name,
+            "language": t.language,
+            "category": t.category,
+            "header": t.header,
+            "body": t.body,
+            "footer": t.footer,
+            "meta_template_id": t.meta_template_id,
+            "meta_status": t.meta_status,
+            "variables": t.variables,
+            "is_active": t.is_active,
+            "created_at": str(t.created_at) if t.created_at else None,
+            "updated_at": str(t.updated_at) if t.updated_at else None,
+        }
+
+    @action(permission="manage_settings", mutates=True)
+    async def create_template(
+        self,
+        *,
+        name: str,
+        language: str = "es",
+        category: str = "UTILITY",
+        header: str = "",
+        body: str = "",
+        footer: str = "",
+        variables: list[str] | None = None,
+    ):
+        """Create a new WhatsApp template (starts with meta_status='pending')."""
+        from whatsapp_inbox.models import WhatsAppTemplate
+
+        if not name:
+            return {"error": "name is required"}
+        if category not in ("MARKETING", "UTILITY", "AUTHENTICATION"):
+            return {"error": "category must be MARKETING, UTILITY, or AUTHENTICATION"}
+
+        async with atomic(self.db) as session:
+            t = WhatsAppTemplate(
+                hub_id=self.hub_id,
+                name=name,
+                language=language,
+                category=category,
+                header=header,
+                body=body,
+                footer=footer,
+                variables=variables or [],
+                meta_status="pending",
+                is_active=True,
+            )
+            session.add(t)
+            await session.flush()
+
+        return {
+            "id": str(t.id),
+            "name": t.name,
+            "meta_status": "pending",
+            "created": True,
+            "note": "Template created locally. Submit to Meta Business Manager for approval.",
+        }
+
+    @action(permission="manage_settings", mutates=True)
+    async def update_template(
+        self,
+        *,
+        template_id: str,
+        name: str | None = None,
+        language: str | None = None,
+        category: str | None = None,
+        header: str | None = None,
+        body: str | None = None,
+        footer: str | None = None,
+        variables: list[str] | None = None,
+        is_active: bool | None = None,
+    ):
+        """Update an existing WhatsApp template. Only provided fields are updated."""
+        from whatsapp_inbox.models import WhatsAppTemplate
+
+        t = await self.q(WhatsAppTemplate).get(_uuid_module.UUID(template_id))
+        if t is None:
+            return {"error": "Template not found"}
+
+        updated = []
+        fields = {
+            "name": name,
+            "language": language,
+            "category": category,
+            "header": header,
+            "body": body,
+            "footer": footer,
+            "variables": variables,
+            "is_active": is_active,
+        }
+        async with atomic(self.db):
+            for field_name, value in fields.items():
+                if value is not None:
+                    setattr(t, field_name, value)
+                    updated.append(field_name)
+            if updated:
+                # Reset to pending after edit (Meta requires re-approval on content change)
+                content_fields = {"name", "language", "category", "header", "body", "footer"}
+                if content_fields.intersection(updated):
+                    t.meta_status = "pending"
+                    if "meta_status" not in updated:
+                        updated.append("meta_status")
+                await self.db.flush()
+
+        return {
+            "id": str(t.id),
+            "updated_fields": updated,
+            "updated": True,
+        }
+
+    @action(permission="manage_settings", mutates=True)
+    async def delete_template(self, *, template_id: str):
+        """Soft-delete a WhatsApp template."""
+        from whatsapp_inbox.models import WhatsAppTemplate
+
+        t = await self.q(WhatsAppTemplate).get(_uuid_module.UUID(template_id))
+        if t is None:
+            return {"error": "Template not found"}
+
+        async with atomic(self.db):
+            t.is_deleted = True
+            await self.db.flush()
+
+        return {"id": template_id, "deleted": True}
+
+    @action(permission="manage_settings")
+    async def sync_with_meta(self, *, phone_number_id: str = ""):
+        """Placeholder: sync templates with Meta Business Manager.
+
+        TODO: Implement Meta Graph API call to GET /{waba_id}/message_templates
+        and update local meta_status and meta_template_id for each template.
+
+        Returns a status dict indicating this is a placeholder.
+        """
+        import logging as _logging
+        _logging.getLogger(__name__).info(
+            "[WhatsAppTemplateService] sync_with_meta called — not yet implemented",
+        )
+        return {
+            "status": "not_implemented",
+            "message": (
+                "Meta template sync is not yet implemented. "
+                "Update meta_status manually via update_template for now."
+            ),
         }

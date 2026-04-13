@@ -12,7 +12,7 @@ dynamic imports via import_module(f'{module_id}.whatsapp').
 # ---------------------------------------------------------------------------
 MODULE_ID = "whatsapp_inbox"
 MODULE_NAME = "WhatsApp Inbox"
-MODULE_VERSION = "1.2.8-deprecated"  # Fase 4: functionality moved to messaging module
+MODULE_VERSION = "2.0.0"
 MODULE_ICON = "logo-whatsapp"
 MODULE_DESCRIPTION = "Receive and process WhatsApp Business messages with AI-powered auto-reply and request management"
 MODULE_AUTHOR = "ERPlora"
@@ -50,6 +50,12 @@ NAVIGATION = [
         "view": "requests",
     },
     {
+        "id": "templates",
+        "label": "Templates",
+        "icon": "document-text-outline",
+        "view": "templates",
+    },
+    {
         "id": "settings",
         "label": "Settings",
         "icon": "settings-outline",
@@ -60,7 +66,7 @@ NAVIGATION = [
 # ---------------------------------------------------------------------------
 # Dependencies (other modules required to be active)
 # ---------------------------------------------------------------------------
-DEPENDENCIES: list[str] = ["messaging", "customers"]
+DEPENDENCIES: list[str] = ["customers"]
 
 # ---------------------------------------------------------------------------
 # Permissions

@@ -308,3 +308,73 @@ class InboxRequest(HubBaseModel):
             "fulfilled": "Fulfilled",
             "cancelled": "Cancelled",
         }.get(self.status, self.status)
+
+
+# ==============================================================================
+# WHATSAPP TEMPLATE
+# ==============================================================================
+
+class WhatsAppTemplate(HubBaseModel):
+    """WhatsApp Business message template (Meta-approved)."""
+
+    __tablename__ = "whatsapp_inbox_template"
+    __table_args__ = (
+        Index("ix_wa_template_hub", "hub_id"),
+        Index("ix_wa_template_hub_name", "hub_id", "name"),
+        Index("ix_wa_template_hub_status", "hub_id", "meta_status"),
+        {"extend_existing": True},
+    )
+
+    CATEGORY_CHOICES = ("MARKETING", "UTILITY", "AUTHENTICATION")
+    META_STATUS_CHOICES = ("pending", "approved", "rejected")
+
+    name: Mapped[str] = mapped_column(String(255))
+    language: Mapped[str] = mapped_column(String(10), default="es", server_default="es")
+    category: Mapped[str] = mapped_column(
+        String(20), default="UTILITY", server_default="UTILITY",
+    )
+
+    # Template body sections
+    header: Mapped[str] = mapped_column(Text, default="", server_default="")
+    body: Mapped[str] = mapped_column(Text, default="", server_default="")
+    footer: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+    # Meta-specific metadata
+    meta_template_id: Mapped[str] = mapped_column(
+        String(100), default="", server_default="",
+    )
+    meta_status: Mapped[str] = mapped_column(
+        String(20), default="pending", server_default="pending",
+    )
+
+    # Variable names referenced in the body, e.g. ["1", "2"] for {{1}}, {{2}}
+    variables: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
+    @property
+    def category_label(self) -> str:
+        return {
+            "MARKETING": "Marketing",
+            "UTILITY": "Utility",
+            "AUTHENTICATION": "Authentication",
+        }.get(self.category, self.category)
+
+    @property
+    def meta_status_label(self) -> str:
+        return {
+            "pending": "Pending approval",
+            "approved": "Approved",
+            "rejected": "Rejected",
+        }.get(self.meta_status, self.meta_status)
+
+    @property
+    def meta_status_class(self) -> str:
+        return {
+            "pending": "warning",
+            "approved": "success",
+            "rejected": "error",
+        }.get(self.meta_status, "neutral")
+
+    def __repr__(self) -> str:
+        return f"<WhatsAppTemplate {self.name!r} ({self.meta_status})>"
