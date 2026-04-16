@@ -146,7 +146,8 @@ def _build_setup_notice(settings: WhatsAppInboxSettings, connected_numbers=None)
     return {
         "title": "Configuration required before using WhatsApp Inbox",
         "message": "Configure this module with the AI assistant or manually in Settings before using it with real customers.",
-        "items": missing_items,
+        # Keep the key as 'missing_items' — 'items' collides with dict.items in Jinja
+        "missing_items": missing_items,
     }
 
 

@@ -10,7 +10,7 @@
                     <h3 class="font-semibold">{{ setup_notice.title }}</h3>
                     <p class="text-sm opacity-80 mt-1">{{ setup_notice.message }}</p>
                     <ul class="mt-3 space-y-1 text-sm opacity-80">
-                        {% for item in setup_notice.items %}
+                        {% for item in setup_notice.missing_items %}
                         <li>&bull; {{ item }}</li>
                         {% endfor %}
                     </ul>
