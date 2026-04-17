@@ -10,7 +10,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.core.events.bus import AsyncEventBus
+    from runtime.signals.dispatcher import AsyncEventBus
 
 logger = logging.getLogger(__name__)
 

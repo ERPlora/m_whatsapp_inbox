@@ -94,7 +94,7 @@ async def _get_verify_token(account_id: str) -> str:
     Returns empty string if not configured (allows any token for backward compat).
     """
     try:
-        from app.config.settings import get_settings
+        from runtime.config.settings import get_settings
         settings = get_settings()
         return getattr(settings, "whatsapp_verify_token", "") or ""
     except Exception:

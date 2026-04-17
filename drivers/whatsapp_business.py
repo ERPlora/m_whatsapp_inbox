@@ -260,7 +260,7 @@ class WhatsAppDriver(ChannelDriver):
 
         # Fallback: load from WhatsAppInboxSettings
         try:
-            from app.core.db.session import get_sync_session
+            from runtime.config.database import get_sync_session
             from whatsapp_inbox.models import WhatsAppInboxSettings
 
             with get_sync_session() as db:

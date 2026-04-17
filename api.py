@@ -20,7 +20,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import select
 
-from app.core.dependencies import DbSession
+from runtime.auth.current_user import DbSession
 
 from .drivers.webhook import verify_signature, verify_webhook
 from .drivers.whatsapp_business import WhatsAppDriver

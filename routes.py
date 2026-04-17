@@ -16,10 +16,10 @@ import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from app.core.db.query import HubQuery
-from app.core.db.transactions import atomic
-from app.core.dependencies import CurrentUser, DbSession, HubId
-from app.core.htmx import add_message, htmx_redirect, htmx_view
+from runtime.models.queryset import HubQuery
+from runtime.orm.transactions import atomic
+from runtime.auth.current_user import CurrentUser, DbSession, HubId
+from runtime.views.responses import add_message, htmx_redirect, htmx_view
 
 from .models import (
     EmployeeWhatsAppLink,
@@ -83,7 +83,7 @@ async def _get_settings(db, hub_id) -> WhatsAppInboxSettings:
 
 async def _get_cloud_helpers() -> tuple[str, str]:
     """Get Cloud API URL and auth token."""
-    from app.config.settings import get_settings
+    from runtime.config.settings import get_settings
     config = get_settings()
     cloud_url = config.cloud_api_url or "https://erplora.com"
     auth_token = config.hub_jwt or ""
@@ -550,7 +550,7 @@ async def settings_view(request: Request, db: DbSession, user: CurrentUser, hub_
     }
 
     # Input/output module candidates (only show installed modules)
-    from app.modules.registry import module_registry
+    from runtime.apps.registry import module_registry
     installed = set(module_registry.active_module_ids())
     input_candidates = [
         {"id": mid, "label": cfg["label"]}

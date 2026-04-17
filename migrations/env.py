@@ -11,7 +11,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-from app.core.db.base import Base
+from runtime.models.base import Base
 
 # Import module models so Alembic can detect them
 from whatsapp_inbox.models import (  # noqa: F401

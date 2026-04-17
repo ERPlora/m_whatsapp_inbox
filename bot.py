@@ -63,7 +63,7 @@ async def _query_module_async(config: dict, db: Any, hub_id: UUID) -> list[dict]
     Returns:
         list[dict] or None if module not installed
     """
-    from app.core.db.query import HubQuery
+    from runtime.models.queryset import HubQuery
 
     try:
         module_path, class_name = config["model_path"].rsplit(".", 1)

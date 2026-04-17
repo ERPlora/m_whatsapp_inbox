@@ -125,7 +125,7 @@ async def execute_action(inbox_request: InboxRequest, db: object = None) -> str 
 async def _get_settings(inbox_request: InboxRequest, db: object = None) -> object | None:
     """Load WhatsAppInboxSettings for the request's hub."""
     try:
-        from app.core.db.query import HubQuery
+        from runtime.models.queryset import HubQuery
         from whatsapp_inbox.models import WhatsAppInboxSettings
 
         if db:

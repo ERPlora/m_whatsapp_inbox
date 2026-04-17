@@ -29,7 +29,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from uuid import UUID
 
-from app.core.db.base import HubBaseModel
+from runtime.models.base import HubBaseModel
 
 from datetime import datetime
 

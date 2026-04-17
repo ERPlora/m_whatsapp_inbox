@@ -13,9 +13,9 @@ from typing import Any
 
 import uuid as _uuid_module
 
-from app.core.db.query import HubQuery
-from app.core.db.transactions import atomic
-from app.modules.services import ModuleService, action
+from runtime.models.queryset import HubQuery
+from runtime.orm.transactions import atomic
+from runtime.apps.service_facade import ModuleService, action
 
 from .bot import DEFAULT_SCHEMAS, INPUT_MODULE_REGISTRY, OUTPUT_MODULE_REGISTRY
 
@@ -94,12 +94,12 @@ _USE_CASE_BLUEPRINTS = {
 # ============================================================================
 
 def _get_modules_dir() -> Path:
-    from app.config.settings import get_settings
+    from runtime.config.settings import get_settings
     return Path(get_settings().modules_dir)
 
 
 def _get_active_module_ids() -> set[str]:
-    from app.modules.registry import module_registry
+    from runtime.apps.registry import module_registry
     return set(module_registry.active_module_ids())
 
 
